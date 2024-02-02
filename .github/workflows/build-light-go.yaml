@@ -1,0 +1,34 @@
+name: Build light-go
+on:
+  workflow_dispatch:
+
+env: 
+  pack-version: "v0.32.1"
+  registry: ghcr.io
+  image-name: ${{ github.repository_owner }}/light-go
+
+permissions:
+  packages: write
+  contents: read
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - run: echo "image-tag=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - run: | 
+          (curl -sSL "https://github.com/buildpacks/pack/releases/download/${{ env.pack-version }}/pack-${{ env.pack-version }}-linux.tgz" | sudo tar -C /usr/local/bin/ --no-same-owner -xzv pack);
+          cd light-go
+          pack build ${{ env.registry }}/${{env.image-name}}:${{env.image-tag}} --buildpack paketo-buildpacks/go \
+          --builder paketobuildpacks/builder-jammy-tiny
+      - name: Log into registry ${{ env.registry }}
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: 'Push image'
+        run:
+          docker push ${{ env.registry }}/${{env.image-name}}:${{env.image-tag}}
